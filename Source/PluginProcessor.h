@@ -24,6 +24,7 @@ public:
     ~SimpleEQAudioProcessor() override;
 
     //==============================================================================
+    // Called when playback is about to start
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
@@ -31,6 +32,7 @@ public:
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
    #endif
 
+    // Called by host with blocks of audio to be processed
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     //==============================================================================
@@ -55,6 +57,10 @@ public:
     //==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+    
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    
+    juce::AudioProcessorValueTreeState ap_tree_state {*this, nullptr, "Parameters", createParameterLayout()};
 
 private:
     //==============================================================================
