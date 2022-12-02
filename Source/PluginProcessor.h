@@ -74,6 +74,8 @@ public:
 
     // Called by host with blocks of audio to be processed
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    
+    void applyCoefficients(double sampleRate);
 
     //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
@@ -117,6 +119,14 @@ private:
     // The entire processing chain for one channel of audio (aka 'mono') is
     // low cut, peak, high cut. Hence the <CutFilter, Filter, CutFilter> generics
     using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
+    
+    // Enum for positions in the processing chain for our EQ plugin. Order must match
+    // the order specified for MonoChain above.
+    enum ChainPositions {
+        LowCut,
+        Peak,
+        HighCut,
+    };
     
     // Processing chains for both of the stereo channels (left and right)
     MonoChain leftChain, rightChain;
