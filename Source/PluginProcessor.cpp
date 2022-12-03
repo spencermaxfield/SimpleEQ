@@ -116,6 +116,68 @@ void SimpleEQAudioProcessor::applyCoefficients(double sampleRate)
     // Apply the peak band coefficients to both channels
     leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
     rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+
+    // Apply the low cut to both channels. First calculate the order
+    // based on the selected slope. Then get the coefficients and apply them.
+    int lowCutOrder = (chainSettings.lowCutSlope + 1) * 2;
+    auto lowCutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(chainSettings.lowCutFreq, sampleRate, lowCutOrder);
+    auto& leftLowCut = leftChain.get<ChainPositions::LowCut>();
+    auto& rightLowCut = rightChain.get<ChainPositions::LowCut>();
+
+    // Apply the low cut to both channels
+    applyCutFilter(leftLowCut, lowCutCoefficients, chainSettings.lowCutSlope);
+    applyCutFilter(rightLowCut, lowCutCoefficients, chainSettings.lowCutSlope);
+    
+    // Apply the high cut to both channels. First calculate the order
+    // based on the selected slope. Then get the coefficients and apply them.
+    int highCutOrder = (chainSettings.highCutSlope + 1) * 2;
+    auto highCutCoefficients = juce::dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(chainSettings.highCutFreq, sampleRate, highCutOrder);
+    auto& leftHighCut = leftChain.get<ChainPositions::HighCut>();
+    auto& rightHighCut = rightChain.get<ChainPositions::HighCut>();
+
+    // Apply the high cut to both channels
+    applyCutFilter(leftHighCut, highCutCoefficients, chainSettings.highCutSlope);
+    applyCutFilter(rightHighCut, highCutCoefficients, chainSettings.highCutSlope);
+}
+
+void SimpleEQAudioProcessor::applyCutFilter(CutFilter& cutFilter, juce::ReferenceCountedArray<juce::dsp::FilterDesign<float>::IIRCoefficients> coefficients, Slope slope)
+{
+    
+    // The first filter is always enabled since a 12 db/oct slope
+    // is the lowest option
+    cutFilter.setBypassed<Slope_12>(false);
+    cutFilter.get<Slope_12>().coefficients = *coefficients[Slope_12];
+    
+    // Bypass the remaining cut filters to start. We'll re-enable
+    // them as needed if a higher slope is selected
+    cutFilter.setBypassed<Slope_24>(true);
+    cutFilter.setBypassed<Slope_36>(true);
+    cutFilter.setBypassed<Slope_48>(true);
+    
+    switch(slope)
+    {
+        case Slope_12:
+            // do nothing. See comment above.
+            break;
+        case Slope_24:
+            cutFilter.get<Slope_24>().coefficients = *coefficients[Slope_24];
+            cutFilter.setBypassed<Slope_24>(false);
+            break;
+        case Slope_36:
+            cutFilter.get<Slope_24>().coefficients = *coefficients[Slope_24];
+            cutFilter.setBypassed<Slope_24>(false);
+            cutFilter.get<Slope_36>().coefficients = *coefficients[Slope_36];
+            cutFilter.setBypassed<Slope_36>(false);
+            break;
+        case Slope_48:
+            cutFilter.get<Slope_24>().coefficients = *coefficients[Slope_24];
+            cutFilter.setBypassed<Slope_24>(false);
+            cutFilter.get<Slope_36>().coefficients = *coefficients[Slope_36];
+            cutFilter.setBypassed<Slope_36>(false);
+            cutFilter.get<Slope_48>().coefficients = *coefficients[Slope_48];
+            cutFilter.setBypassed<Slope_48>(false);
+            break;
+    }
 }
 
 void SimpleEQAudioProcessor::releaseResources()
@@ -213,9 +275,9 @@ SimpleEQSettings getChainSettings(juce::AudioProcessorValueTreeState& ap_tree_st
     SimpleEQSettings settings;
     
     settings.lowCutFreq = ap_tree_state.getRawParameterValue(LOW_CUT_FREQ)->load();
-    settings.lowCutSlope = ap_tree_state.getRawParameterValue(LOW_CUT_SLOPE)->load();
+    settings.lowCutSlope = static_cast<Slope>(ap_tree_state.getRawParameterValue(LOW_CUT_SLOPE)->load());
     settings.highCutFreq = ap_tree_state.getRawParameterValue(HIGH_CUT_FREQ)->load();
-    settings.highCutSlope = ap_tree_state.getRawParameterValue(HIGH_CUT_SLOPE)->load();
+    settings.highCutSlope = static_cast<Slope>(ap_tree_state.getRawParameterValue(HIGH_CUT_SLOPE)->load());
     settings.peakFreq = ap_tree_state.getRawParameterValue(PEAK_FREQ)->load();
     settings.peakGain = ap_tree_state.getRawParameterValue(PEAK_GAIN)->load();
     settings.peakQ = ap_tree_state.getRawParameterValue(PEAK_Q)->load();

@@ -10,11 +10,19 @@
 
 #include <JuceHeader.h>
 
+enum Slope
+{
+    Slope_12,
+    Slope_24,
+    Slope_36,
+    Slope_48
+};
+
 struct SimpleEQSettings
 {
     // Low cut settings
     float lowCutFreq { 0 };
-    int lowCutSlope { 0 };
+    Slope lowCutSlope { Slope_12 };
     
     // Peak band settings
     float peakFreq { 0 };
@@ -23,7 +31,7 @@ struct SimpleEQSettings
     
     // High cut settings
     float highCutFreq { 0 };
-    int highCutSlope { 0 };
+    Slope highCutSlope { Slope_12 };
 };
 
 SimpleEQSettings getChainSettings(juce::AudioProcessorValueTreeState& ap_tree_state);
@@ -75,7 +83,6 @@ public:
     // Called by host with blocks of audio to be processed
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     
-    void applyCoefficients(double sampleRate);
 
     //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
@@ -130,6 +137,10 @@ private:
     
     // Processing chains for both of the stereo channels (left and right)
     MonoChain leftChain, rightChain;
+    
+    // Helper methods
+    void applyCoefficients(double sampleRate);
+    void applyCutFilter(CutFilter& cutFilter, juce::ReferenceCountedArray<juce::dsp::FilterDesign<float>::IIRCoefficients> coefficients, Slope slope);
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SimpleEQAudioProcessor)
